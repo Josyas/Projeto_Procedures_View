@@ -1,0 +1,26 @@
+CREATE PROCEDURE SP_Baixa_Titulos(@DATAPAGAMENTO AS DATE, @IDEMPRESA AS INT, @IDCONTACORRENTE AS INT, @NRDOCUMENTO AS VARCHAR(30), @DSMOVIMENTACAO VARCHAR(50))
+AS
+SET NOCOUNT ON
+BEGIN
+    DECLARE @dtVencimento DATE, @vlPago FLOAT, @idStatusParcela INT, @idMovimentoBanco INT
+
+    SELECT @dtVencimento = Parcela.dtVencimento, 
+        @vlPago = SUM(Parcela.vlParcela - Parcela.vlTaxaAdministracao),
+        @idMovimentoBanco = Parcela.idMovimentoBanco
+    FROM card.tbParcela as Parcela
+    WHERE dtVencimento = @DATAPAGAMENTO 
+    GROUP BY 
+    Parcela.dtVencimento, Parcela.idMovimentoBanco
+
+    SELECT @idStatusParcela = Status.idStatusParcela 
+    FROM card.tbStatusParcela AS Status
+    WHERE Status.idStatusParcela = 2
+
+    UPDATE card.tbParcela SET dtPagamento = @dtVencimento, vlPago = (vlParcela - vlTaxaAdministracao), idStatusParcela = @idStatusParcela, idMovimentoBanco = @idMovimentoBanco 
+    WHERE dtVencimento = @DATAPAGAMENTO AND idStatusParcela = 2
+
+    INSERT card.tbMovimentoBanco (idEmpresa, idContaCorrente, nrDocumento, dsMovimento, vlMovimento, tpOperacao, dtMovimento) 
+                        VALUES   (@IDEMPRESA, @IDCONTACORRENTE, @NRDOCUMENTO, @DSMOVIMENTACAO, @vlPago, 'E', @DATAPAGAMENTO)
+END
+
+

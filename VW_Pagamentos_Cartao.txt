@@ -1,0 +1,24 @@
+CREATE VIEW VW_Pagamentos_Cartao 
+AS 
+SELECT 
+    Empresa.nrCNPJ,
+    PagamentoVenda.nrNSU,
+    Parcela.dtPagamento,
+    Bandeira.idBandeira,
+    Bandeira.dsBandeira,
+    PagamentoVenda.vlPagamento,
+    PagamentoVenda.qtParcelas,
+    Parcela.idPagamentoVenda
+FROM
+   card.tbEmpresa AS Empresa,
+   card.tbPagamentoVenda AS PagamentoVenda,
+   card.tbBandeira AS Bandeira,
+   card.tbParcela AS Parcela
+WHERE PagamentoVenda.idFormaPagamento IN(3, 4) 
+AND PagamentoVenda.idBandeira = Bandeira.idBandeira
+AND PagamentoVenda.idBandeira IS NOT NULL
+AND PagamentoVenda.nrNSU IS NOT NULL
+AND Parcela.dtPagamento IS NOT NULL
+AND Parcela.vlPago IS NOT NULL
+
+   

@@ -1,0 +1,62 @@
+CREATE PROCEDURE [dbo].[SP_Corrige_Parcelas](@ID_PAGAMENTO AS INT,
+                                            @QTAPARCELAS_NOVA AS INT,
+                                            @TAXA_ADM AS FLOAT)
+AS
+SET NOCOUNT ON
+BEGIN
+    DECLARE @QtdeDias INT = 30, 
+            @TaxaCalculada FLOAT, 
+            @idPagamentoVenda INT, 
+            @qtParcelas INT, 
+            @idEmpresa INT, 
+            @dtEmissao DATETIME, 
+            @dtVencimento DATETIME, 
+            @vlPagamento FLOAT, 
+            @Taxa FLOAT,
+            @idStatusParcela INT
+
+    SELECT @idPagamentoVenda = Pagamento.idPagamentoVenda,
+           @qtParcelas = Pagamento.qtParcelas,
+           @idEmpresa = Pagamento.idEmpresa,
+           @dtEmissao = Pagamento.dtEmissao,
+           @dtVencimento = DATEADD(DAY, @QtdeDias, Pagamento.dtEmissao),
+           @vlPagamento = Pagamento.vlPagamento,
+           @Taxa = (Pagamento.vlPagamento * @TAXA_ADM) / 100,
+           @idStatusParcela = StatusParcela.idStatusParcela
+    FROM   card.tbPagamentoVenda AS Pagamento,
+           card.tbStatusParcela AS StatusParcela
+    WHERE  Pagamento.idPagamentoVenda = @ID_PAGAMENTO AND StatusParcela.idStatusParcela = 2
+
+    DECLARE @contador INT = 1
+    DECLARE @TotalParcelas INT
+ 
+    SELECT @TotalParcelas = qtParcelas FROM card.tbPagamentoVenda WHERE idPagamentoVenda = @ID_PAGAMENTO;
+
+    IF (@QTAPARCELAS_NOVA > @TotalParcelas )
+            UPDATE card.tbPagamentoVenda SET qtParcelas = @QTAPARCELAS_NOVA  WHERE idPagamentoVenda = @ID_PAGAMENTO;
+
+            WHILE @contador <= @QTAPARCELAS_NOVA 
+            BEGIN
+                INSERT INTO card.tbParcela (idPagamentoVenda, nrParcela, idEmpresa, dtEmissao, dtVencimento, vlParcela, vlTaxaAdministracao, idContaCorrente, dtPagamento, vlPago, idStatusParcela, idMovimentoBanco)
+                SELECT @ID_PAGAMENTO, @contador , @idEmpresa, @dtEmissao, @dtVencimento, @vlPagamento, @Taxa, null, null, null, @idStatusParcela, null
+                WHERE NOT EXISTS (
+                SELECT 1 FROM card.tbParcela 
+                 WHERE idPagamentoVenda = @ID_PAGAMENTO AND nrParcela = @contador
+                );
+        
+                SET @contador = @contador + 1
+            END
+
+    IF(@QTAPARCELAS_NOVA < @TotalParcelas )
+        BEGIN
+            DELETE 
+            FROM card.tbParcela 
+            WHERE idStatusParcela = 2 
+            AND idPagamentoVenda = @ID_PAGAMENTO 
+            AND nrParcela > @QTAPARCELAS_NOVA
+            AND dtPagamento IS NULL
+            
+            UPDATE card.tbPagamentoVenda SET qtParcelas = @QTAPARCELAS_NOVA WHERE idPagamentoVenda = @ID_PAGAMENTO;
+        END     
+END
+
